@@ -1,0 +1,242 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mongodb.fullname" . }}-job-config
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+data:
+  mongo.sh: |-
+    #!/bin/bash
+    # apt update -y
+    # curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add -
+    # echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+
+    apt update -y
+    # apt install mongodb-org -y
+
+    apt install -y netcat
+  database.sh: |-
+    qa1_communication
+    qa1_opsZoomcarDB
+    qa1_alfred
+    qa1_stage-inventory
+    qa1_offer-service
+    qa1_stage-payment
+    qa1_opsZoomcarProfilingDB
+    qa1_keystone
+  script.sh: |-
+    #!/bin/bash
+    # Environment Setup
+    ENV={{ .Values.scriptauth.env }}
+    
+    Mongo_admin_PASSWORD=$MONGODB_ROOT_PASSWORD
+    Mongo_admin_User=$MONGODB_ROOT_USER
+    Mongo_Host="mongodb.{{ .Release.Namespace | default "default" }}.svc.cluster.local"
+
+    MongoUser=$MONGODB_CMN_USER
+    MongoPassword=$MONGODB_CMN_PASSWORD 
+    DB="admin"
+
+    # replace "-" with "_" for database username
+    filename='database.sh'
+    filename_2='dbs.sh'
+    # exec 4<"$filename"
+
+    echo "Checking the host: $Host_2 connection."
+
+    # Wait until mongo logs that it's ready (or timeout after 30 tries of 10s)
+    until (nc -zv ${Mongo_Host} 27017)
+    do
+        echo "Trying to connect to mongodb..."
+        echo "Note: Waiting MongoDB to be ready"
+        sleep 10
+        count=$(expr $count + 1)
+        echo $count
+        if [ $count -ge 30 ]; then
+                echo "MongoDB connection failed as connection could not be established!"
+                exit 0;
+        fi
+        echo "Waiting for mongo to initialize... ($count seconds so far)"
+    done
+
+    echo "Connection Establised!"
+
+  {{- if eq .Values.scriptauth.env "qa1" }}
+    cd ./data/
+
+    cp ../database.sh .
+    cat database.sh
+    echo "------------------------"
+    mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD}  --eval "show databases" | grep qa1 | awk '{print $1}' > db.sh
+    comm -23 <(sort database.sh) <(sort db.sh) > newdb.sh
+
+    echo "Checking if common User Exist"
+    Check=$(mongo admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD} --eval "db.system.users.find({user:'cmn_user_rw'}).count() == 1" | grep true)
+    echo $Check
+    if [ X"$Check" = X"true" ];
+    then
+        echo "User Exists!"
+    else
+        echo "Creating MongoDB Common User"
+        mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD} --eval "db.createUser({user: '${MongoUser}', pwd: '${MongoPassword}', roles: [{ role: 'readWrite', db: '$DB' }]})"
+    fi
+
+    touch envlist.sh
+
+    echo "Environment:"
+    echo $ENV
+    if grep -Fxq qa1 envlist.sh
+    then
+        echo "Enviornment qa1 already exist!"
+    else
+        echo 'Adding new environment qa1 into envlist.sh file'
+        echo qa1 >> envlist.sh
+    fi
+
+    sed 's/^ *//; s/ *$//; /^$/d' envlist.sh > newenv.sh
+    echo "Available Environments:"
+    cat newenv.sh
+
+    file="newdb.sh"
+    exec 4<"$file"
+    echo "Granting Role to User $MongoUser"
+    while read -u4 dblist ;
+    do
+        DUMPDB=$dblist
+        filenm='newenv.sh'
+        exec 3<"$filenm"
+        while read -u3 env ;
+        do
+            echo $DUMPDB
+            echo $env
+            item=$(echo -e "${dblist}" | tr -d '[[:space:]]')
+            item=($(echo $item | tr "," "\n"))
+            item=($(echo $item | sed 's/\'qa1'/\'${env}'/g'))   
+            echo "Creating $item Database..."
+            echo "var user=db.collection('user');" > mongo-new-db.js
+            echo "use $item" >> mongo-new-db.js
+            echo "db.createCollection('user', { capped : true, size : 5242880, max : 5000 } )" >> mongo-new-db.js
+            echo "------------ Grant access to User -------------------"
+            mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD} --eval "db.grantRolesToUser('${MongoUser}', [{ role: 'readWrite', db: '${item}' }])"
+            mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD} < mongo-new-db.js
+            echo "$item Database Created!"
+        done
+    done
+  {{- else }}
+    cd ./data
+    touch envlist.sh
+    filename='envlist.sh'
+    echo "Environment:"
+    echo $ENV
+    if grep -Fxq ${ENV} ${filename}
+    then
+        echo "Enviornment already exist"
+    else
+        echo 'Adding new environment ${ENV} into envlist.sh file'
+        echo ${ENV} >> envlist.sh
+    fi
+
+    sed 's/^ *//; s/ *$//; /^$/d' envlist.sh > newenv.sh
+    echo "Available Environments:"
+    cat newenv.sh
+
+    mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD}  --eval "show databases" | grep qa1 | awk '{print $1}' > db.sh
+    cp ../database.sh .
+    file="db.sh"
+    exec 4<"$file"    
+
+    # # paste -d, $filename_2 $filename | while IFS=',' read -r maindb dblist;
+    while read -u4 db ;
+    do
+        MAINDB=$db
+
+        item=$(echo -e "${db}" | tr -d '[[:space:]]')
+        item=($(echo $item | tr "," "\n"))
+        DUMPDB=($(echo $item | sed 's/\'qa1'/\'$ENV'/g'))
+
+
+        if [ -f /root/.my.cnf ]; then
+            echo "Skip..."
+        else  
+            echo "Please wait while taking backup of following:"
+            echo "Dump DB"
+            echo $DUMPDB
+            echo "Parent DB:"
+            echo $MAINDB
+            echo "------------ Taking DB Dump -------------------------"
+            mongodump --uri="mongodb://${Mongo_admin_User}:${Mongo_admin_PASSWORD}@${Mongo_Host}:27017/${MAINDB}?authSource=admin" --out .
+            echo "------------ Restoreing Dump ------------------------"
+            mongorestore --username ${Mongo_admin_User} --password ${Mongo_admin_PASSWORD} --authenticationDatabase admin --host ${Mongo_Host} --port 27017 --db ${DUMPDB} ./${MAINDB}
+            echo "------------ Grant access to User -------------------"
+            mongosh admin --host ${Mongo_Host} --authenticationDatabase admin -u ${Mongo_admin_User} -p ${Mongo_admin_PASSWORD} --eval "db.grantRolesToUser('${MongoUser}', [{ role: 'readWrite', db: '${DUMPDB}' }])"
+            
+            rm -rf ${MAINDB}
+        fi
+    done
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ template "mongodb.fullname" . }}-job-volume
+spec:
+  storageClassName: gp2
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+   name: {{ template "mongodb.fullname" . }}-postinstall-hook
+   namespace: {{ .Release.Namespace | quote }}
+   annotations:
+      "helm.sh/hook": "post-install, post-upgrade"
+      "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+  - name: post-install-container
+    image: mongo
+    imagePullPolicy: Always
+    env:
+      - name: MONGODB_ROOT_USER
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "mongodb.secretName" . }}
+            key: mongodb-root-user
+      - name: MONGODB_ROOT_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "mongodb.secretName" . }}
+            key: mongodb-root-password
+      - name: MONGODB_CMN_USER
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "mongodb.secretName" . }}
+            key: mongodb-cmn-user
+      - name: MONGODB_CMN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "mongodb.secretName" . }}
+            key: mongodb-cmn-password
+    volumeMounts:
+      - name: script
+        mountPath: /home/ubuntu/script/
+      - name: data
+        mountPath: /home/ubuntu/script/data
+    command: ['bash', '-c', 'cd /home/ubuntu/script/ && pwd && ls && ./mongo.sh && ./script.sh' ]
+  volumes:
+    - name: script
+      configMap:
+        name: {{ template "mongodb.fullname" . }}-job-config
+        defaultMode: 0744
+    - name: data
+      persistentVolumeClaim:
+        claimName: {{ template "mongodb.fullname" . }}-job-volume
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 0
