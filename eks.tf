@@ -18,16 +18,20 @@ module "eks" {
             min_size        = 1
             max_size        = 3
             desired_size    = 2
-            
             instance_types  = ["t2.large"]
+            labels = {
+            name = var.namespace_names[0]
+            }
         }
         dev2 = {
             node_group_name = "eks-nodegroup2"
             min_size        = 1
             max_size        = 3
             desired_size    = 2
-            
             instance_types  = ["t2.large"]
+            labels = {
+            name = var.namespace_names[1]
+            }
         }
     }
   }

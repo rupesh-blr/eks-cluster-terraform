@@ -7,10 +7,10 @@ resource "kubernetes_namespace" "data-pg" {
   metadata {
     name = var.namespace_names[count.index]
     labels = {
-      name = "data-label"
+      name = var.namespace_names[count.index]
     }
     annotations = {
-      name = "data-annotation"
+      name = "data-annotations"
     }
   }
 }
