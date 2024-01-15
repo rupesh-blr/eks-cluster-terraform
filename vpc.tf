@@ -30,3 +30,30 @@ module "eks-vpc" {
   "kubernetes.io/role/elb"                  = "1"
 }
 }
+
+# resource "aws_internet_gateway" "gw" { 
+#  vpc_id = module.eks-vpc.vpc_id
+ 
+#  tags = {
+#    Name = "Project VPC IG"
+#  }
+# }
+
+# resource "aws_route_table" "second_rt" {
+#  vpc_id = module.eks-vpc.vpc_id
+ 
+#  route {
+#    cidr_block = "0.0.0.0/0"
+#    gateway_id = aws_internet_gateway.gw.id
+#  }
+ 
+#  tags = {
+#    Name = "2nd Route Table"
+#  }
+# }
+
+# resource "aws_route_table_association" "public_subnet_asso" {
+#  count = length(var.public_subnet_cidr_block)
+#  subnet_id      = module.eks-vpc.public_subnets[count.index].id
+#  route_table_id = aws_route_table.second_rt.id
+# }

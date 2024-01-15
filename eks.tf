@@ -5,7 +5,7 @@ module "eks" {
   cluster_name    = var.eks_name
   cluster_version = "1.27"
 
-  subnet_ids      = module.eks-vpc.public_subnets
+  subnet_ids      = module.eks-vpc.private_subnets
   vpc_id          = module.eks-vpc.vpc_id
 
   tags = {
