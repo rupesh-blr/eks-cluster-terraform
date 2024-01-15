@@ -2,18 +2,18 @@
 #   rource    = "./modules/kubernetes_pod"
 # }
 
-resource "kubernetes_namespace" "data-pg" {
-    count = length(var.namespace_names)
-  metadata {
-    name = var.namespace_names[count.index]
-    labels = {
-      name = var.namespace_names[count.index]
-    }
-    annotations = {
-      name = "data-annotations"
-    }
-  }
-}
+# resource "kubernetes_namespace" "data-pg" {
+#     count = length(var.namespace_names)
+#   metadata {
+#     name = var.namespace_names[count.index]
+#     labels = {
+#       name = var.namespace_names[count.index]
+#     }
+#     annotations = {
+#       name = "data-annotations"
+#     }
+#   }
+# }
 resource "kubernetes_pod" "nginx" {
   metadata {
     name      = "${var.nginx_pod_name}"

@@ -43,7 +43,7 @@ variable "eks_name" {
 variable "addon_names" {
   description = "List of EKS addon names"
   type        = list(string)
-  default     = ["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver"]
+  default     = ["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver", "aws-efs-csi-driver"]
 }
 
 variable "iam_user_name" {
@@ -51,19 +51,29 @@ variable "iam_user_name" {
   default = "project-admin"
 }
 
-variable "config_path" {
+variable "eks_cluster_oidc_provider" {
   type = string
-  description = "Kube config file path"
+  default = "4BA43692D7C9E345FE18B5217E79C6A3"
 }
 
-variable "config_context" {
+variable "eks_cluster_id" {
   type = string
-  description = "Name of the context"
+  default = "value"
 }
 
-variable "namespace" {
-  type = string
-}
+# variable "config_path" {
+#   type = string
+#   description = "Kube config file path"
+# }
+
+# variable "config_context" {
+#   type = string
+#   description = "Name of the context"
+# }
+
+# variable "namespace" {
+#   type = string
+# }
 
 variable "tags" {
   type    = map(string)
