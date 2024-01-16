@@ -35,3 +35,9 @@ module "eks" {
         }
     }
   }
+resource "aws_iam_role_policy_attachment" "additional" {
+  for_each = module.eks.eks_managed_node_groups
+
+  policy_arn = "arn:aws:iam::533267265870:policy/ebs-permission"
+  role       = each.value.iam_role_name
+}
