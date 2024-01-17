@@ -17,7 +17,7 @@
 resource "kubernetes_pod" "nginx" {
   metadata {
     name      = "${var.nginx_pod_name}"
-    namespace = "${var.namespace_names[0]}"
+    namespace = "${var.namespace_names}"
     labels = {
       app = "nginx"
     }
@@ -32,7 +32,7 @@ resource "kubernetes_pod" "nginx" {
 resource "kubernetes_service" "nginx" {
   metadata {
     name      = "${var.nginx_pod_name}"
-    namespace = "${var.namespace_names[0]}"
+    namespace = "${var.namespace_names}"
   }
   spec {
     selector = {

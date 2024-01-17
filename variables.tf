@@ -17,8 +17,19 @@ variable "public_subnet_cidr_block" {
 }
 
 variable "namespace_names" {
-  default = ["data-pg1", "data-pg2"]
-  type    = list(string)
+  default = "data-pg"
+  type    = string
+}
+
+variable "instance_size" {
+  default = "t3.large"
+  type = string
+}
+
+variable "eks-nodegroup" {
+  default = "eks-nodegroup"
+  type = string
+
 }
 
 variable "nginx_pod_name" {

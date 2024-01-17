@@ -1,7 +1,7 @@
 resource "kubernetes_horizontal_pod_autoscaler" "nginx" {
   metadata {
     name = "terraform-hpa"
-    namespace = var.namespace_names[1]
+    namespace = var.namespace_names
   }
 
   spec {

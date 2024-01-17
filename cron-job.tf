@@ -1,7 +1,6 @@
-resource "kubernetes_cron_job" "db-backup" {
+resource "kubernetes_cron_job" "mongo-backup" {
   metadata {
-    name = "store-ebs-snapshot-to-s3"
-    namespace = "${var.namespace_names[0]}"
+    name = "mangodb-backup"
   }
   spec {
     concurrency_policy            = "Replace"
@@ -18,8 +17,8 @@ resource "kubernetes_cron_job" "db-backup" {
           metadata {}
           spec {
             container {
-              name    = "hello"
-              image   = "ubuntu:20.04"
+              name    = "mongodbbackup"
+              image   = "public.ecr.aws/p5j3z0i6/mongo:latest"
               command = ["/bin/sh", "-c", "date; echo Hello from the Kubernetes cluster"]
             }
           }
@@ -28,7 +27,3 @@ resource "kubernetes_cron_job" "db-backup" {
     }
   }
 }
-
-# Note: inside busybox container we are runnning mongo dump command to take dump of db and aws cli command to copy dump in s3 bucket.
-# mongodump --username admin --password password --authenticationDatabase admin --host host-endpoint --port 27017 --db DB_name --out .
-# aws s3 cp <dump path> s3://<s3-bucket-name>/ --recursive
