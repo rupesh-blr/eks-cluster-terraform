@@ -19,7 +19,7 @@ resource "kubernetes_cron_job" "mongo-backup" {
             container {
               name    = "mongodbbackup"
               image   = "public.ecr.aws/p5j3z0i6/mongo:latest"
-              command = ["/bin/sh", "-c", "date; echo Hello from the Kubernetes cluster"]
+              command = ["/bin/sh", "-c", "sh /usr/local/bin/script.sh"]
             }
           }
         }

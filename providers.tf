@@ -25,5 +25,5 @@ provider "helm" {
 
 
 provider "kubernetes" {
-#   config_context = "eks_context"
+  config_path = "~/.kube/config"  # Path to your kubeconfig file
 }
